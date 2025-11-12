@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Tic Tac Toe — Beach Cat Edition</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Itim&display=swap');
+
+    :root{
+      --bg1:#FFF4E0;
+      --bg2:#CFF7FF;
+      --accent:#FF8A65;
+      --muted:#6B7280;
+      --shadow:0 8px 20px rgba(15,23,42,0.08);
+      font-family:'Itim', cursive;
+    }
+
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{
+      height:100vh;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      background:linear-gradient(180deg,var(--bg2) 0%, #A7E8FF 40%, var(--bg1) 100%);
+    }
+
+    .game-container{
+      width:900px;
+      max-width:95%;
+      background:rgba(255,255,255,0.8);
+      border-radius:20px;
+      box-shadow:var(--shadow);
+      backdrop-filter:blur(5px);
+      padding:20px;
+      display:flex;
+      gap:20px;
+      position:relative;
+    }
+
+    .cat-corner{
+      position:absolute;
+      top:-40px;
+      right:-30px;
+      width:100px;
+      height:100px;
+      animation:floaty 3s ease-in-out infinite;
+    }
+
+    @keyframes floaty{
+      0%,100%{transform:translateY(0)}
+      50%{transform:translateY(-8px)}
+    }
+
+    .board{
+      width:360px;
+      height:360px;
+      display:grid;
+      grid-template-columns:repeat(3,1fr);
+      grid-template-rows:repeat(3,1fr);
+      gap:10px;
+      background:rgba(255,255,255,0.8);
+      border-radius:18px;
+      padding:18px;
+      box-shadow:var(--shadow);
+    }
+
+    .cell{
+      background:#fff8f0;
+      border-radius:12px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-size:56px;
+      cursor:pointer;
+      transition:transform .12s ease, box-shadow .12s ease;
+    }
+    .cell:hover{transform:translateY(-6px);box-shadow:0 12px 30px rgba(15,23,42,0.08)}
+    .cell.locked{cursor:default;opacity:0.85}
+
+    .x-icon{font-size:60px;color:#FF6B6B;text-shadow:0 2px 4px rgba(0,0,0,0.15);}
+    .o-icon{font-size:60px;color:#4FC3F7;text-shadow:0 2px 4px rgba(0,0,0,0.15);}
+
+    .right-panel{flex:1;display:flex;flex-direction:column;gap:12px;justify-content:center;color:#444;}
+
+    .scoreboard{background:rgba(255,255,255,0.9);border-radius:12px;box-shadow:var(--shadow);padding:14px;}
+
+    .score-row{display:flex;justify-content:space-between;margin:6px 0;font-size:20px}
+
+    h1{font-size:26px;color:#ff7043;text-shadow:0 2px 4px rgba(255,112,67,0.3);margin-bottom:8px;text-align:center;}
+
+    button,select{background:var(--accent);border:none;color:white;padding:8px 12px;border-radius:10px;cursor:pointer;font-family:'Itim', cursive;font-size:16px;transition:transform .15s ease;}
+    button:active{transform:scale(0.96)}
+  </style>
+</head>
+<body>
+  <div class="game-container">
+    <img src="https://cdn-icons-png.flaticon.com/512/616/616408.png" alt="cute cat" class="cat-corner" />
+    <div>
+      <h1>🐱 Cat Tic-Tac-Toe 🏖️</h1>
+      <div class="board" id="board"></div>
+    </div>
+    <div class="right-panel">
+      <div class="scoreboard">
+        <div class="score-row"><span>ผู้เล่น X</span><span id="scoreX">0</span></div>
+        <div class="score-row"><span>ผู้เล่น O</span><span id="scoreO">0</span></div>
+        <div class="score-row"><span>เสมอ</span><span id="scoreD">0</span></div>
+      </div>
+      <select id="mode">
+        <option value="human">เล่นกับคน</option>
+        <option value="bot">เล่นกับบอท</option>
+      </select>
+      <select id="difficulty">
+        <option value="easy">ง่าย 🐾</option>
+        <option value="medium">ปานกลาง 🌴</option>
+        <option value="hard">ยาก 🧠</option>
+      </select>
+      <button id="newRound">เริ่มรอบใหม่</button>
+      <div id="message" style="text-align:center;color:#777;margin-top:10px;">เริ่มเล่นกันเลย!</div>
+      <audio id="soundClick" src="https://cdn.pixabay.com/audio/2022/03/15/audio_9c720d0d70.mp3"></audio>
+      <audio id="soundWin" src="https://cdn.pixabay.com/audio/2022/03/15/audio_45bcbfb45a.mp3"></audio>
+    </div>
+  </div>
+
+  <script>
+    const X_ICON = '<div class="x-icon">🐾</div>';
+    const O_ICON = '<div class="o-icon">🌴</div>';
+    let board = Array(9).fill(null);
+    let current = 'X';
+    let scores = {X:0,O:0,D:0};
+    let allowInput = true;
+    let mode = 'human';
+    let difficulty = 'easy';
+
+    const boardEl=document.getElementById('board');
+    const msg=document.getElementById('message');
+    const scoreX=document.getElementById('scoreX');
+    const scoreO=document.getElementById('scoreO');
+    const scoreD=document.getElementById('scoreD');
+    const soundClick=document.getElementById('soundClick');
+    const soundWin=document.getElementById('soundWin');
+
+    document.getElementById('mode').onchange=(e)=>mode=e.target.value;
+    document.getElementById('difficulty').onchange=(e)=>difficulty=e.target.value;
+
+    function renderBoard(){
+      boardEl.innerHTML='';
+      board.forEach((v,i)=>{
+        const cell=document.createElement('div');
+        cell.className='cell'+(v?' locked':'');
+        cell.dataset.i=i;
+        cell.innerHTML=v?(v==='X'?X_ICON:O_ICON):'';
+        cell.onclick=()=>onCellClick(i);
+        boardEl.appendChild(cell);
+      });
+    }
+
+    function checkWin(b){
+      const lines=[[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+      for(const l of lines){const[a,b1,c]=l;if(b[a]&&b[a]===b[b1]&&b[a]===b[c])return{winner:b[a],line:l}}return null;
+    }
+
+    function emptyCells(b){return b.map((v,i)=>v?null:i).filter(v=>v!==null);}
+
+    function randomMove(b){const cells=emptyCells(b);return cells[Math.floor(Math.random()*cells.length)];}
+
+    function mediumMove(b){
+      const lines=[[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+      for(const l of lines){const[a,b1,c]=l;if(b[a]==='O'&&b[b1]==='O'&&!b[c])return c;if(b[a]==='O'&&b[c]==='O'&&!b[b1])return b1;if(b[b1]==='O'&&b[c]==='O'&&!b[a])return a;}
+      for(const l of lines){const[a,b1,c]=l;if(b[a]==='X'&&b[b1]==='X'&&!b[c])return c;if(b[a]==='X'&&b[c]==='X'&&!b[b1])return b1;if(b[b1]==='X'&&b[c]==='X'&&!b[a])return a;}
+      return randomMove(b);
+    }
+
+    function minimax(b, depth, isMax){
+      const win=checkWin(b);
+      if(win){return win.winner==='O'?10-depth:depth-10;}
+      if(b.every(Boolean))return 0;
+      const moves=emptyCells(b);
+      if(isMax){let best=-Infinity;for(const m of moves){b[m]='O';best=Math.max(best,minimax(b,depth+1,false));b[m]=null;}return best;}
+      else{let best=Infinity;for(const m of moves){b[m]='X';best=Math.min(best,minimax(b,depth+1,true));b[m]=null;}return best;}
+    }
+
+    function hardMove(b){
+      let best=-Infinity;let move;
+      for(const m of emptyCells(b)){b[m]='O';const score=minimax(b,0,false);b[m]=null;if(score>best){best=score;move=m;}}
+      return move;
+    }
+
+    function botMove(){
+      let move;
+      if(difficulty==='easy') move=randomMove(board);
+      else if(difficulty==='medium') move=mediumMove(board);
+      else move=hardMove(board);
+      setTimeout(()=>applyMove(move,'O'),500);
+    }
+
+    function applyMove(i,mark){
+      if(board[i]||!allowInput)return;
+      soundClick.play();
+      board[i]=mark;renderBoard();
+      const r=checkWin(board);
+      if(r){allowInput=false;scores[r.winner]++;updateScores();msg.textContent=`${r.winner==='X'?'🐾 ชนะ!':'🌴 ชนะ!'}`;soundWin.play();return;}
+      if(board.every(Boolean)){scores.D++;updateScores();msg.textContent='เสมอ!';allowInput=false;return;}
+      current=current==='X'?'O':'X';
+      msg.textContent=`ถึงตาของ ${current==='X'?'🐾':'🌴'}`;
+      if(mode==='bot' && current==='O')botMove();
+    }
+
+    function onCellClick(i){if(!allowInput)return;if(board[i])return;applyMove(i,current);}
+
+    function updateScores(){scoreX.textContent=scores.X;scoreO.textContent=scores.O;scoreD.textContent=scores.D;}
+
+    document.getElementById('newRound').onclick=()=>{
+      board=Array(9).fill(null);
+      current='X';
+      allowInput=true;
+      msg.textContent='เริ่มรอบใหม่!';
+      renderBoard();
+    };
+
+    renderBoard();
+  </script>
+</body>
+</html>
